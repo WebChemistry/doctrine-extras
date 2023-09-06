@@ -1,0 +1,17 @@
+{
+    "name": "webchemistry/doctrine-extras",
+    "require": {
+        "php": ">= 8.1",
+        "doctrine/orm": "^2.14",
+        "nette/utils": "^3.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "WebChemistry\\DoctrineExtras\\": "src"
+        }
+    },
+    "require-dev": {
+        "nette/tester": "^2.4",
+        "phpstan/phpstan": "^1.9"
+    }
+}
