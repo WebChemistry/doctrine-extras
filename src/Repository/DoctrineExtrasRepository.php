@@ -56,7 +56,7 @@ final class DoctrineExtrasRepository
 
 	/**
 	 * @template TEntity of EntityWithIdentity
-	 * @template TAssoc of EntityWithIdentity
+	 * @template TAssoc of object
 	 * @param TEntity[] $sources
 	 * @param class-string<TAssoc> $target
 	 * @return EntityMap<TEntity, TAssoc>
@@ -101,7 +101,7 @@ final class DoctrineExtrasRepository
 
 	/**
 	 * @template TEntity of EntityWithIdentity
-	 * @template TAssoc of EntityWithIdentity
+	 * @template TAssoc of object
 	 * @param class-string<TEntity> $primary
 	 * @param TAssoc[] $associations
 	 * @return EntityMap<TEntity, TAssoc>
