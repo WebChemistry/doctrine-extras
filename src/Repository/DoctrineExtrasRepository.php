@@ -8,6 +8,7 @@ use LogicException;
 use Nette\NotSupportedException;
 use Nette\Utils\Arrays;
 use WebChemistry\DoctrineExtras\Identity\EntityWithIdentity;
+use WebChemistry\DoctrineExtras\Index\EntityIndexFactory;
 use WebChemistry\DoctrineExtras\Map\EntityMap;
 
 final class DoctrineExtrasRepository
@@ -17,6 +18,57 @@ final class DoctrineExtrasRepository
 		private EntityManagerInterface $em,
 	)
 	{
+	}
+
+	/**
+	 * @template TEntity of EntityWithIdentity
+	 * @template TAssoc of object
+	 * @param TEntity[] $sources
+	 * @param class-string<TAssoc> $target
+	 * @return EntityMap<TEntity, int>
+	 */
+	public function createCountMap(array $sources, string $target, ?Criteria $criteria = null): EntityMap
+	{
+		$first = $this->getFirst($sources);
+
+		if (!$first) {
+			return EntityMap::empty();
+		}
+
+		$metadata = $this->em->getClassMetadata($target);
+		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
+
+		$qb = $this->em->createQueryBuilder()
+			->select(sprintf('COUNT(e), IDENTITY(e.%s)', $field))
+			->groupBy(sprintf('e.%s', $field))
+			->from($target, 'e')
+			->where(sprintf('e.%s IN (:sources)', $field))
+			->setParameter('sources', $sources);
+
+		if ($criteria) {
+			$qb->addCriteria($criteria);
+		}
+
+		/** @var array{1: int, 2: string|int}[] $associations */
+		$associations = $qb->getQuery()
+			->getResult();
+
+		$entries = [];
+		$index = (new EntityIndexFactory($this->em))->create($sources);
+
+		foreach ($associations as $association) {
+			$count = $association[1];
+			$sourceId = $association[2];
+
+			$entity = $index->find($sourceId);
+
+			if ($entity) {
+				$entries[] = [$entity, $count];
+			}
+		}
+
+		/** @var EntityMap<TEntity, int> */
+		return EntityMap::fromEntries($entries);
 	}
 
 	/**
