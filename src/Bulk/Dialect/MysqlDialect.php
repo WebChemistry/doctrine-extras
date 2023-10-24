@@ -75,14 +75,14 @@ final class MysqlDialect implements Dialect
 	}
 
 	/**
-	 * @param array<string, string> $rows placeholder => column
+	 * @param array<string, string> $rows column => placeholder
 	 */
 	private function toAssigns(array $rows): string
 	{
 		return implode(', ', array_map(
 			fn (string $placeholder, string $column) => sprintf('%s = :%s', $column, $placeholder),
-			array_keys($rows),
 			$rows,
+			array_keys($rows),
 		));
 	}
 
@@ -92,7 +92,7 @@ final class MysqlDialect implements Dialect
 	private function toPlaceholders(array $rows): string
 	{
 		return implode(', ', array_map(
-			fn (BulkRow $row) => sprintf('(:%s)', implode(', :', array_keys($row->data))),
+			fn (BulkRow $row) => sprintf('(:%s)', implode(', :', $row->data)),
 			$rows,
 		));
 	}

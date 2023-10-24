@@ -6,7 +6,7 @@ use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use InvalidArgumentException;
 
-final class BulkData
+abstract class BulkData
 {
 
 	public const SeverityException = 1;
@@ -14,15 +14,15 @@ final class BulkData
 	public const SeverityIgnore = 3;
 
 	/** @var BulkRow[] */
-	private array $rows = [];
+	protected array $rows = [];
 
-	private int $index = 0;
+	protected int $index = 0;
 
 	/** @var self::SeverityException|self::SeverityWarning|self::SeverityIgnore */
-	private int $extraFieldSeverity = self::SeverityWarning;
+	protected int $extraFieldSeverity = self::SeverityWarning;
 
 	/** @var string[] */
-	private array $fieldsToCheck;
+	protected array $fieldsToCheck;
 
 	/**
 	 * @param ClassMetadata<object> $metadata
@@ -73,19 +73,28 @@ final class BulkData
 	 * @param array<string, scalar|null> $values
 	 * @param int|string|null $key
 	 */
-	public function addValues(array $values, int|string|null $key = null): self
-	{
-		$this->checkFields($values);
+	abstract public function addValues(array $values, int|string|null $key = null): static;
 
+	/**
+	 * @param array<string, scalar|null> $values
+	 * @param int|string|null $key
+	 */
+	protected function upsertValues(array $values, int|string|null $key = null): static
+	{
 		[$data, $dataParameters] = $this->processValues($values, $this->fields);
 		[$meta, $metaParameters] = $this->processValues($values, $this->metaFields, '_meta');
 
-		$row = new BulkRow($data, $dataParameters, $meta, $metaParameters);
+		$fields = array_keys($values);
+		$row = new BulkRow($data, $dataParameters, array_combine($fields, $fields), $meta, $metaParameters);
 
 		if ($key === null) {
 			$this->rows[] = $row;
 		} else {
-			$this->rows[$key] = $row;
+			if (isset($this->rows[$key])) {
+				$this->rows[$key]->merge($row);
+			} else {
+				$this->rows[$key] = $row;
+			}
 		}
 
 		$this->index++;
@@ -104,9 +113,9 @@ final class BulkData
 	/**
 	 * @param array<string, scalar|null> $values
 	 * @param array<string, string> $fields
-	 * @return array{ array<string, string>, array{string, scalar|null, int}[] }
+	 * @return array{ array<string, string>, array<string, array{string, scalar|null, int}> }
 	 */
-	private function processValues(array $values, array $fields, string $suffix = ''): array
+	protected function processValues(array $values, array $fields, string $suffix = ''): array
 	{
 		if (!$fields) {
 			return [[], []];
@@ -116,23 +125,14 @@ final class BulkData
 		$columns = [];
 
 		foreach ($fields as $field => $column) {
-			$columns[sprintf('%s_%d%s', $field, $this->index, $suffix)] = $column;
-			$parameters[] = [sprintf('%s_%d%s', $field, $this->index, $suffix), ...$this->parseParameter($values[$field])];
-
-			unset($values[$field]);
-		}
-
-		if ($values) {
-			if ($this->extraFieldSeverity === self::SeverityWarning) {
-				trigger_error(
-					sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName()),
-					E_USER_WARNING
-				);
-			} elseif ($this->extraFieldSeverity === self::SeverityException) {
-				throw new InvalidArgumentException(
-					sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName())
-				);
+			if (!array_key_exists($field, $values)) {
+				continue;
 			}
+
+			$placeholder = sprintf('%s_%d%s', $field, $this->index, $suffix);
+
+			$columns[$column] = $placeholder;
+			$parameters[$column] = [$placeholder, ...$this->parseParameter($values[$field])];
 		}
 
 		return [$columns, $parameters];
@@ -141,7 +141,7 @@ final class BulkData
 	/**
 	 * @return array{scalar|null, int}
 	 */
-	private function parseParameter(float|bool|int|string|null $value): array
+	protected function parseParameter(float|bool|int|string|null $value): array
 	{
 		if (is_string($value)) {
 			return [$value, ParameterType::STRING];
@@ -163,30 +163,30 @@ final class BulkData
 	}
 
 	/**
-	 * @param array<string, scalar|null> $values
+	 * @param array<string, mixed> $fields
 	 */
-	private function checkFields(array $values): void
+	protected function checkFields(array $fields, string|int|null $id = null): void
 	{
 		foreach ($this->fieldsToCheck as $field) {
-			if (!array_key_exists($field, $values)) {
-				throw new InvalidArgumentException(sprintf('Field %s does not exist.', $field));
+			if (!array_key_exists($field, $fields)) {
+				throw new InvalidArgumentException(sprintf('Field %s does not exist%s.', $field, $id !== null ? sprintf(' in %s.', $id) : ''));
 			}
 
-			unset($values[$field]);
+			unset($fields[$field]);
 		}
 
-		if (!$values) {
+		if (!$fields) {
 			return;
 		}
 
 		if ($this->extraFieldSeverity === self::SeverityWarning) {
 			trigger_error(
-				sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName()),
+				sprintf('Extra fields %s%s.', implode(', ', array_keys($fields)),  $id !== null ? sprintf(' in %s.', $id) : ''),
 				E_USER_WARNING
 			);
 		} elseif ($this->extraFieldSeverity === self::SeverityException) {
 			throw new InvalidArgumentException(
-				sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName())
+				sprintf('Extra fields %s%s.', implode(', ', array_keys($fields)),  $id !== null ? sprintf(' in %s.', $id) : '')
 			);
 		}
 	}

@@ -7,10 +7,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\MappingException;
 use InvalidArgumentException;
+use WebChemistry\DoctrineExtras\Bulk\Dialect\Dialect;
 use WebChemistry\DoctrineExtras\Bulk\Dialect\MysqlDialect;
 
 final class BulkFactory
 {
+
+	private MysqlDialect $dialect;
 
 	public function __construct(
 		private EntityManagerInterface $em,
@@ -25,22 +28,36 @@ final class BulkFactory
 	 */
 	public function createUpdate(string $className, array $fields, array $metaFields): BulkUpdate
 	{
-		$platform = $this->em->getConnection()->getDatabasePlatform();
-
-		if (!$platform instanceof MySQLPlatform) {
-			throw new InvalidArgumentException(sprintf('Platform %s is not supported.', $platform::class));
-		}
-
 		$metadata = $this->em->getClassMetadata($className);
 
 		return new BulkUpdate(
 			$this->em,
-			new BulkData(
+			new BulkInstantData(
 				$metadata,
 				$this->createColumnFieldArray($fields, $metadata),
 				$this->createColumnFieldArray($metaFields, $metadata),
 			),
-			new MysqlDialect(),
+			$this->getDialect(),
+		);
+	}
+
+	/**
+	 * @param class-string $className
+	 * @param string[] $fields
+	 * @param string[] $metaFields
+	 */
+	public function createLateUpdate(string $className, array $fields, array $metaFields): BulkUpdate
+	{
+		$metadata = $this->em->getClassMetadata($className);
+
+		return new BulkUpdate(
+			$this->em,
+			new BulkLateData(
+				$metadata,
+				$this->createColumnFieldArray($fields, $metadata),
+				$this->createColumnFieldArray($metaFields, $metadata),
+			),
+			$this->getDialect(),
 		);
 	}
 
@@ -50,15 +67,43 @@ final class BulkFactory
 	 */
 	public function createInsert(string $className, array $fields): BulkInsert
 	{
-		$platform = $this->em->getConnection()->getDatabasePlatform();
-
-		if (!$platform instanceof MySQLPlatform) {
-			throw new InvalidArgumentException(sprintf('Platform %s is not supported.', $platform::class));
-		}
-
 		$metadata = $this->em->getClassMetadata($className);
 
-		return new BulkInsert($this->em, new BulkData($metadata, $this->createColumnFieldArray($fields, $metadata)), new MysqlDialect());
+		return new BulkInsert(
+			$this->em,
+			new BulkInstantData($metadata, $this->createColumnFieldArray($fields, $metadata)),
+			$this->getDialect(),
+		);
+	}
+
+	/**
+	 * @param class-string $className
+	 * @param string[] $fields
+	 */
+	public function createLateInsert(string $className, array $fields): BulkInsert
+	{
+		$metadata = $this->em->getClassMetadata($className);
+
+		return new BulkInsert(
+			$this->em,
+			new BulkLateData($metadata, $this->createColumnFieldArray($fields, $metadata)),
+			$this->getDialect(),
+		);
+	}
+
+	private function getDialect(): Dialect
+	{
+		if (!isset($this->dialect)) {
+			$platform = $this->em->getConnection()->getDatabasePlatform();
+
+			if (!$platform instanceof MySQLPlatform) {
+				throw new InvalidArgumentException(sprintf('Platform %s is not supported.', $platform::class));
+			}
+
+			$this->dialect = new MysqlDialect();
+		}
+
+		return $this->dialect;
 	}
 
 	/**
@@ -76,7 +121,7 @@ final class BulkFactory
 			} else {
 				try {
 					$metadata->getSingleAssociationJoinColumnName($field);
-				} catch (MappingException $e) {
+				} catch (MappingException) {
 					throw new InvalidArgumentException(sprintf('Field %s does not exist in %s.', $field, $metadata->getName()));
 				}
 			}

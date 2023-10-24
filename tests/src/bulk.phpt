@@ -3,6 +3,8 @@
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Tester\Assert;
 use WebChemistry\DoctrineExtras\Bulk\BulkData;
+use WebChemistry\DoctrineExtras\Bulk\BulkInstantData;
+use WebChemistry\DoctrineExtras\Bulk\BulkLateData;
 use WebChemistry\DoctrineExtras\Bulk\Dialect\MysqlDialect;
 
 require __DIR__ . '/../bootstrap.php';
@@ -11,7 +13,7 @@ $metadata = new ClassMetadata('Foo');
 $metadata->setPrimaryTable([
 	'name' => 'foo',
 ]);
-$data = new BulkData($metadata, ['id' => 'id', 'firstName' => 'first_name'], ['id' => 'id']);
+$data = new BulkInstantData($metadata, ['id' => 'id', 'firstName' => 'first_name'], ['id' => 'id']);
 $data->setExtraFieldSeverity($data::SeverityException);
 
 $data->addValues(['id' => 1, 'firstName' => 'John']);
@@ -34,3 +36,17 @@ Assert::exception(fn () => $data->addValues(['id' => 3]), InvalidArgumentExcepti
 
 // extra values
 Assert::exception(fn () => $data->addValues(['id' => 3, 'firstName' => 'Alice', 'lastName' => 'Smith']), InvalidArgumentException::class);
+
+// late values
+$data = new BulkLateData($metadata, ['id' => 'id', 'firstName' => 'first_name'], ['id' => 'id']);
+$data->setExtraFieldSeverity($data::SeverityException);
+
+$data->addValues(['id' => 1]);
+
+Assert::exception(fn () => $data->getRows(), InvalidArgumentException::class);
+
+$data->addValues(['firstName' => 'Jane'], 0);
+$data->getRows();
+
+$data->addValues(['lastName' => 'Smith'], 0);
+Assert::exception(fn () => $data->getRows(), InvalidArgumentException::class);
