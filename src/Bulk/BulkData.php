@@ -9,10 +9,20 @@ use InvalidArgumentException;
 final class BulkData
 {
 
+	public const SeverityException = 1;
+	public const SeverityWarning = 2;
+	public const SeverityIgnore = 3;
+
 	/** @var BulkRow[] */
 	private array $rows = [];
 
 	private int $index = 0;
+
+	/** @var self::SeverityException|self::SeverityWarning|self::SeverityIgnore */
+	private int $extraFieldSeverity = self::SeverityWarning;
+
+	/** @var string[] */
+	private array $fieldsToCheck;
 
 	/**
 	 * @param ClassMetadata<object> $metadata
@@ -25,6 +35,17 @@ final class BulkData
 		private array $metaFields = [],
 	)
 	{
+		$this->fieldsToCheck = array_keys(array_merge($this->fields, $this->metaFields));
+	}
+
+	/**
+	 * @param self::SeverityException|self::SeverityWarning|self::SeverityIgnore $extraFieldSeverity
+	 */
+	public function setExtraFieldSeverity(int $extraFieldSeverity): static
+	{
+		$this->extraFieldSeverity = $extraFieldSeverity;
+
+		return $this;
 	}
 
 	public function getTableName(): string
@@ -54,6 +75,8 @@ final class BulkData
 	 */
 	public function addValues(array $values, int|string|null $key = null): self
 	{
+		$this->checkFields($values);
+
 		[$data, $dataParameters] = $this->processValues($values, $this->fields);
 		[$meta, $metaParameters] = $this->processValues($values, $this->metaFields, '_meta');
 
@@ -93,12 +116,23 @@ final class BulkData
 		$columns = [];
 
 		foreach ($fields as $field => $column) {
-			if (!array_key_exists($field, $values)) {
-				throw new InvalidArgumentException(sprintf('Field %s does not exist.', $field));
-			}
-
 			$columns[sprintf('%s_%d%s', $field, $this->index, $suffix)] = $column;
 			$parameters[] = [sprintf('%s_%d%s', $field, $this->index, $suffix), ...$this->parseParameter($values[$field])];
+
+			unset($values[$field]);
+		}
+
+		if ($values) {
+			if ($this->extraFieldSeverity === self::SeverityWarning) {
+				trigger_error(
+					sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName()),
+					E_USER_WARNING
+				);
+			} elseif ($this->extraFieldSeverity === self::SeverityException) {
+				throw new InvalidArgumentException(
+					sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName())
+				);
+			}
 		}
 
 		return [$columns, $parameters];
@@ -126,6 +160,35 @@ final class BulkData
 		}
 
 		return [$value, ParameterType::NULL];
+	}
+
+	/**
+	 * @param array<string, scalar|null> $values
+	 */
+	private function checkFields(array $values): void
+	{
+		foreach ($this->fieldsToCheck as $field) {
+			if (!array_key_exists($field, $values)) {
+				throw new InvalidArgumentException(sprintf('Field %s does not exist.', $field));
+			}
+
+			unset($values[$field]);
+		}
+
+		if (!$values) {
+			return;
+		}
+
+		if ($this->extraFieldSeverity === self::SeverityWarning) {
+			trigger_error(
+				sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName()),
+				E_USER_WARNING
+			);
+		} elseif ($this->extraFieldSeverity === self::SeverityException) {
+			throw new InvalidArgumentException(
+				sprintf('Extra fields %s in %s.', implode(', ', array_keys($values)), $this->metadata->getName())
+			);
+		}
 	}
 
 }
