@@ -120,7 +120,7 @@ final class BulkFactory
 				$return[$field] = $metadata->getColumnName($field);
 			} else {
 				try {
-					$metadata->getSingleAssociationJoinColumnName($field);
+					$return[$field] = $metadata->getSingleAssociationJoinColumnName($field);
 				} catch (MappingException) {
 					throw new InvalidArgumentException(sprintf('Field %s does not exist in %s.', $field, $metadata->getName()));
 				}
