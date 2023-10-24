@@ -48,5 +48,12 @@ Assert::exception(fn () => $data->getRows(), InvalidArgumentException::class);
 $data->addValues(['firstName' => 'Jane'], 0);
 $data->getRows();
 
-$data->addValues(['lastName' => 'Smith'], 0);
-Assert::exception(fn () => $data->getRows(), InvalidArgumentException::class);
+$data->addValues(['firstName' => 'Jane'], 0);
+$data->getRows();
+
+$invalidData = clone $data;
+$invalidData->addValues(['lastName' => 'Smith'], 0);
+Assert::exception(fn () => $invalidData->getRows(), InvalidArgumentException::class);
+
+$data->addValues(['id' => 2, 'firstName' => 'John'], 1);
+$data->getRows();

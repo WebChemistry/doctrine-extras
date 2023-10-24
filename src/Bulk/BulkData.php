@@ -191,4 +191,9 @@ abstract class BulkData
 		}
 	}
 
+	public function __clone(): void
+	{
+		$this->rows = array_map(fn (BulkRow $row) => clone $row, $this->rows);
+	}
+
 }
