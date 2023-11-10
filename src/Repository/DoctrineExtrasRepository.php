@@ -76,9 +76,10 @@ final class DoctrineExtrasRepository
 	 * @param class-string<T> $className
 	 * @param array<string|int> $ids
 	 * @param 'DESC'|'ASC'|null $sort
+	 * @param array<string, string> $joins join => alias
 	 * @return T[]
 	 */
-	public function findMany(string $className, array $ids, ?string $sort = null): array
+	public function findMany(string $className, array $ids, ?string $sort = null, array $joins = []): array
 	{
 		$metadata = $this->em->getClassMetadata($className);
 
@@ -97,6 +98,11 @@ final class DoctrineExtrasRepository
 			->from($className, 'e')
 			->where(sprintf('e.%s IN(:ids)', $field))
 			->setParameter('ids', array_reverse($ids));
+
+		foreach ($joins as $join => $alias) {
+			$qb->leftJoin($join, $alias)
+				->addSelect($alias);
+		}
 
 		if ($sort) {
 			$qb->orderBy(sprintf('FIELD(e.%s, :ids)', $field), $sort);
