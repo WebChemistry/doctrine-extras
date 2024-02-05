@@ -9,6 +9,7 @@ use Nette\NotSupportedException;
 use Nette\Utils\Arrays;
 use WebChemistry\DoctrineExtras\Identity\EntityWithIdentity;
 use WebChemistry\DoctrineExtras\Index\EntityIndexFactory;
+use WebChemistry\DoctrineExtras\Map\CountMap;
 use WebChemistry\DoctrineExtras\Map\EntityMap;
 
 final class DoctrineExtrasRepository
@@ -21,18 +22,19 @@ final class DoctrineExtrasRepository
 	}
 
 	/**
-	 * @template TEntity of EntityWithIdentity
+	 * @template TEntity of object
 	 * @template TAssoc of object
 	 * @param TEntity[] $sources
 	 * @param class-string<TAssoc> $target
-	 * @return EntityMap<TEntity, int>
+	 * @return CountMap<TEntity>
 	 */
-	public function createCountMap(array $sources, string $target, ?Criteria $criteria = null): EntityMap
+	public function createCountMap(array $sources, string $target, ?Criteria $criteria = null): CountMap
 	{
 		$first = $this->getFirst($sources);
 
 		if (!$first) {
-			return EntityMap::empty();
+			/** @var CountMap<TEntity> */
+			return new CountMap([]);
 		}
 
 		$metadata = $this->em->getClassMetadata($target);
@@ -67,8 +69,8 @@ final class DoctrineExtrasRepository
 			}
 		}
 
-		/** @var EntityMap<TEntity, int> */
-		return EntityMap::fromEntries($entries);
+		/** @var CountMap<TEntity> */
+		return new CountMap($entries);
 	}
 
 	/**
