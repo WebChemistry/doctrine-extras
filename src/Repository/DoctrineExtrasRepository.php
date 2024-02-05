@@ -41,7 +41,7 @@ final class DoctrineExtrasRepository
 		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
 
 		$qb = $this->em->createQueryBuilder()
-			->select(sprintf('COUNT(e), IDENTITY(e.%s)', $field))
+			->select(sprintf('COUNT(e.%s), IDENTITY(e.%s)', $field, $field))
 			->groupBy(sprintf('e.%s', $field))
 			->from($target, 'e')
 			->where(sprintf('e.%s IN (:sources)', $field))
