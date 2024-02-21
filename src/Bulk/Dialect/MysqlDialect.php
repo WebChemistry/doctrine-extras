@@ -2,120 +2,120 @@
 
 namespace WebChemistry\DoctrineExtras\Bulk\Dialect;
 
-use LogicException;
-use WebChemistry\DoctrineExtras\Bulk\BulkData;
-use WebChemistry\DoctrineExtras\Bulk\BulkRow;
+use InvalidArgumentException;
+use WebChemistry\DoctrineExtras\Bulk\Blueprint\BulkBlueprint;
+use WebChemistry\DoctrineExtras\Bulk\Hook\BulkHook;
+use WebChemistry\DoctrineExtras\Bulk\Message\BulkMessage;
+use WebChemistry\DoctrineExtras\Bulk\Packet\BulkPacket;
+use WebChemistry\DoctrineExtras\Bulk\Payload\BulkPayload;
 
 final class MysqlDialect implements Dialect
 {
 
 	/**
-	 * @param array{
-	 *	   skipConflicts?: bool,
-	 *     upsert?: bool,
-	 *     replace?: bool,
-	 * } $options
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
 	 */
-	public function createInsert(BulkData $data, array $options = []): string
+	public function insert(BulkBlueprint $blueprint, array $packets, array $hooks = [], bool $skipDuplications = false): BulkMessage
 	{
-		if (($options['replace'] ?? false) === true) {
-			return $this->createReplace($data);
+		if (!$packets) {
+			throw new InvalidArgumentException('No packets to upsert.');
 		}
 
-		if (($options['skipConflicts'] ?? false) === true) {
-			return sprintf(
-				'INSERT IGNORE INTO %s (%s) VALUES %s',
-				$data->getTableName(),
-				implode(', ', $data->getColumns()),
-				$this->toPlaceholders($data->getRows()),
-			);
+		$sql = sprintf('INSERT INTO %s (%s) VALUES', $blueprint->getTableName(), implode(', ', $blueprint->getColumnNames()));
+		$binds = [];
+
+		foreach ($packets as $packet) {
+			$sql .= sprintf(' (%s),', implode(', ', $packet->getPlaceholders()));
+			$binds = array_merge($binds, $packet->getBinds());
 		}
 
-		$base = sprintf(
-			'INSERT INTO %s (%s) VALUES %s',
-			$data->getTableName(),
-			implode(', ', $data->getColumns()),
-			$this->toPlaceholders($data->getRows()),
-		);
+		$sql = substr($sql, 0, -1);
 
-		if (($options['upsert'] ?? false) === true) {
-			return sprintf(
-				'%s ON DUPLICATE KEY UPDATE %s',
-				$base,
-				$this->buildDuplicateKeyUpdate($data->getMetaColumns() ?: $data->getColumns()),
-			);
+		if ($skipDuplications) {
+			$sql = sprintf('%s ON DUPLICATE KEY UPDATE %s', $sql, implode(', ', array_map(
+				fn (string $column) => sprintf('%s = %s', $column, $column),
+				array_slice($blueprint->getColumnNamesForIds(), 0, 1),
+			)));
 		}
 
-		return $base;
+		return new BulkMessage($sql, $binds, array_map(
+			fn (BulkHook $hook) => fn () => $hook->insert($blueprint, $packets, $skipDuplications),
+			$hooks,
+		));
 	}
 
 	/**
-	 * @param BulkData $data
-	 * @param mixed[] $options
-	 * @return string
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
 	 */
-	public function createUpdate(BulkData $data, array $options = []): string
+	public function upsert(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
 	{
+		$message = $this->insert($blueprint, $packets);
+
+		$sql = sprintf('%s ON DUPLICATE KEY UPDATE %s', $message->sql, implode(', ', array_map(
+			fn (string $column) => sprintf('%s = VALUES(%s)', $column, $column),
+			$blueprint->getColumnNamesForFields(),
+		)));
+
+		return new BulkMessage($sql, $message->binds, array_map(
+			fn (BulkHook $hook) => fn () => $hook->upsert($blueprint, $packets),
+			$hooks,
+		));
+	}
+
+	/**
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
+	 */
+	public function update(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
+	{
+		if (!$packets) {
+			throw new InvalidArgumentException('No packets to upsert.');
+		}
+
 		$sql = '';
 
-		foreach ($data->getRows() as $row) {
-			if (!$row->meta) {
-				throw new LogicException('Meta columns must be set for update.');
+		$tableName = $blueprint->getTableName();
+
+		foreach ($packets as $packet) {
+			$fragment = sprintf('UPDATE %s SET', $tableName);
+
+			foreach ($packet->fields as $field) {
+				$fragment .= sprintf(' %s = %s,', $field->column, $packet->getPlaceholderFor($field));
 			}
 
-			$sql .= sprintf(
-				"UPDATE %s SET %s WHERE %s;\n",
-				$data->getTableName(),
-				$this->toAssigns($row->data),
-				$this->toAssigns($row->meta),
-			);
+			$fragment = sprintf('%s WHERE', substr($fragment, 0, -1));
+
+			foreach ($packet->ids as $id) {
+				$fragment .= sprintf(' %s = %s AND', $id->column, $packet->getPlaceholderFor($id));
+			}
+
+			$fragment = substr($fragment, 0, -4) . ";\n";
+
+			$sql .= $fragment;
 		}
 
-		return rtrim($sql);
-	}
+		$binds = [];
 
-	/**
-	 * @param array<string, string> $rows column => placeholder
-	 */
-	private function toAssigns(array $rows): string
-	{
-		return implode(', ', array_map(
-			fn (string $placeholder, string $column) => sprintf('%s = :%s', $column, $placeholder),
-			$rows,
-			array_keys($rows),
+		foreach ($packets as $packet) {
+			foreach ($packet->getBinds() as $id => $value) {
+				$binds[$id] = $value;
+			}
+		}
+
+		$sql = substr($sql, 0, -1);
+
+		return new BulkMessage($sql, $binds, array_map(
+			fn (BulkHook $hook) => fn () => $hook->update($blueprint, $packets),
+			$hooks,
 		));
-	}
-
-	/**
-	 * @param BulkRow[] $rows
-	 */
-	private function toPlaceholders(array $rows): string
-	{
-		return implode(', ', array_map(
-			fn (BulkRow $row) => sprintf('(:%s)', implode(', :', $row->data)),
-			$rows,
-		));
-	}
-
-	/**
-	 * @param string[] $columns
-	 */
-	private function buildDuplicateKeyUpdate(array $columns): string
-	{
-		return implode(', ', array_map(
-			fn (string $column) => sprintf('%s = VALUES(%s)', $column, $column),
-			$columns,
-		));
-	}
-
-	private function createReplace(BulkData $data): string
-	{
-		return sprintf(
-			'REPLACE INTO %s (%s) VALUES %s',
-			$data->getTableName(),
-			implode(', ', $data->getColumns()),
-			$this->toPlaceholders($data->getRows()),
-		);
 	}
 
 }

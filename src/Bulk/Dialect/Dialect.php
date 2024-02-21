@@ -2,23 +2,36 @@
 
 namespace WebChemistry\DoctrineExtras\Bulk\Dialect;
 
-use WebChemistry\DoctrineExtras\Bulk\BulkData;
+use WebChemistry\DoctrineExtras\Bulk\Blueprint\BulkBlueprint;
+use WebChemistry\DoctrineExtras\Bulk\Hook\BulkHook;
+use WebChemistry\DoctrineExtras\Bulk\Message\BulkMessage;
+use WebChemistry\DoctrineExtras\Bulk\Packet\BulkPacket;
 
 interface Dialect
 {
 
 	/**
-	 * @param array{
-	 *	   skipConflicts?: bool,
-	 *     upsert?: bool,
-	 *     replace?: bool,
-	 * } $options
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
 	 */
-	public function createInsert(BulkData $data, array $options = []): string;
+	public function insert(BulkBlueprint $blueprint, array $packets, array $hooks = [], bool $skipDuplications = false): BulkMessage;
 
 	/**
-	 * @param mixed[] $options
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
 	 */
-	public function createUpdate(BulkData $data, array $options = []): string;
+	public function upsert(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage;
+
+	/**
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
+	 */
+	public function update(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage;
 
 }
