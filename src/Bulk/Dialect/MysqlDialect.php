@@ -17,8 +17,15 @@ final class MysqlDialect implements Dialect
 	 * @param BulkBlueprint<T> $blueprint
 	 * @param BulkPacket[] $packets
 	 * @param BulkHook[] $hooks
+	 * @param mixed[] $options
 	 */
-	public function insert(BulkBlueprint $blueprint, array $packets, array $hooks = [], bool $skipDuplications = false): BulkMessage
+	public function insert(
+		BulkBlueprint $blueprint,
+		array $packets,
+		array $hooks = [],
+		bool $skipDuplications = false,
+		array $options = [],
+	): BulkMessage
 	{
 		return $this->buildInsert(
 			$blueprint,
@@ -26,6 +33,7 @@ final class MysqlDialect implements Dialect
 			fn (BulkHook $hook) => $hook->insert($blueprint, $packets, $skipDuplications),
 			$hooks,
 			$skipDuplications,
+			options: $options,
 		);
 	}
 
@@ -34,8 +42,14 @@ final class MysqlDialect implements Dialect
 	 * @param BulkBlueprint<T> $blueprint
 	 * @param BulkPacket[] $packets
 	 * @param BulkHook[] $hooks
+	 * @param mixed[] $options
 	 */
-	public function insertIgnore(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
+	public function insertIgnore(
+		BulkBlueprint $blueprint,
+		array $packets,
+		array $hooks = [],
+		array $options = [],
+	): BulkMessage
 	{
 		return $this->buildInsert(
 			$blueprint,
@@ -43,6 +57,7 @@ final class MysqlDialect implements Dialect
 			fn (BulkHook $hook) => $hook->insertIgnore($blueprint, $packets),
 			$hooks,
 			ignore: true,
+			options: $options,
 		);
 	}
 
@@ -51,10 +66,16 @@ final class MysqlDialect implements Dialect
 	 * @param BulkBlueprint<T> $blueprint
 	 * @param BulkPacket[] $packets
 	 * @param BulkHook[] $hooks
+	 * @param mixed[] $options
 	 */
-	public function upsert(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
+	public function upsert(
+		BulkBlueprint $blueprint,
+		array $packets,
+		array $hooks = [],
+		array $options = [],
+	): BulkMessage
 	{
-		$message = $this->insert($blueprint, $packets);
+		$message = $this->insert($blueprint, $packets, options: $options);
 
 		$sql = sprintf('%s ON DUPLICATE KEY UPDATE %s', $message->sql, implode(', ', array_map(
 			fn (string $column) => sprintf('%s = VALUES(%s)', $column, $column),
@@ -72,8 +93,14 @@ final class MysqlDialect implements Dialect
 	 * @param BulkBlueprint<T> $blueprint
 	 * @param BulkPacket[] $packets
 	 * @param BulkHook[] $hooks
+	 * @param mixed[] $options
 	 */
-	public function update(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
+	public function update(
+		BulkBlueprint $blueprint,
+		array $packets,
+		array $hooks = [],
+		array $options = [],
+	): BulkMessage
 	{
 		if (!$packets) {
 			throw new InvalidArgumentException('No packets to upsert.');
@@ -82,18 +109,27 @@ final class MysqlDialect implements Dialect
 		$sql = '';
 
 		$tableName = $blueprint->getTableName();
+		$escape = $options[self::ColumnEscape] ?? false;
 
 		foreach ($packets as $packet) {
 			$fragment = sprintf('UPDATE %s SET', $tableName);
 
 			foreach ($packet->fields as $field) {
-				$fragment .= sprintf(' %s = %s,', $field->column, $packet->getPlaceholderFor($field));
+				$fragment .= sprintf(
+					' %s = %s,',
+					$escape ? $this->escapeColumn($field->column) : $field->column,
+					$packet->getPlaceholderFor($field),
+				);
 			}
 
 			$fragment = sprintf('%s WHERE', substr($fragment, 0, -1));
 
 			foreach ($packet->ids as $id) {
-				$fragment .= sprintf(' %s = %s AND', $id->column, $packet->getPlaceholderFor($id));
+				$fragment .= sprintf(
+					' %s = %s AND',
+					$escape ? $this->escapeColumn($id->column) : $id->column,
+					$packet->getPlaceholderFor($id),
+				);
 			}
 
 			$fragment = substr($fragment, 0, -4) . ";\n";
@@ -125,6 +161,7 @@ final class MysqlDialect implements Dialect
 	 * @param BulkPacket[] $packets
 	 * @param callable(BulkHook $hook): void $hookCallback
 	 * @param BulkHook[] $hooks
+	 * @param mixed[] $options
 	 */
 	private function buildInsert(
 		BulkBlueprint $blueprint,
@@ -133,17 +170,21 @@ final class MysqlDialect implements Dialect
 		array $hooks = [],
 		bool $skipDuplications = false,
 		bool $ignore = false,
+		array $options = [],
 	): BulkMessage
 	{
 		if (!$packets) {
 			throw new InvalidArgumentException('No packets to upsert.');
 		}
 
+		$escape = $options[self::ColumnEscape] ?? false;
+		$columnNames = $blueprint->getColumnNames();
+
 		$sql = sprintf(
 			'%s INTO %s (%s) VALUES',
 			$ignore ? 'INSERT IGNORE' : 'INSERT',
 			$blueprint->getTableName(),
-			implode(', ', $blueprint->getColumnNames()),
+			implode(', ', $escape ? $this->escapeColumns($columnNames) : $columnNames),
 		);
 		$binds = [];
 
@@ -156,7 +197,7 @@ final class MysqlDialect implements Dialect
 
 		if ($skipDuplications) {
 			$sql = sprintf('%s ON DUPLICATE KEY UPDATE %s', $sql, implode(', ', array_map(
-				fn (string $column) => sprintf('%s = %s', $column, $column),
+				fn (string $column) => sprintf('%s = %s', $escape ? $this->escapeColumn($column) : $column, $column),
 				array_slice($blueprint->getColumnNamesForIds(), 0, 1),
 			)));
 		}
@@ -165,6 +206,23 @@ final class MysqlDialect implements Dialect
 			fn (BulkHook $hook) => fn () => $hookCallback($hook),
 			$hooks,
 		));
+	}
+
+	/**
+	 * @param string[] $columns
+	 * @return string[]
+	 */
+	private function escapeColumns(array $columns): array
+	{
+		return array_map(
+			fn (string $column) => sprintf('`%s`', $column),
+			$columns,
+		);
+	}
+
+	private function escapeColumn(string $column): string
+	{
+		return sprintf('`%s`', $column);
 	}
 
 }

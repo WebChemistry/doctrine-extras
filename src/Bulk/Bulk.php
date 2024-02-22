@@ -31,44 +31,68 @@ final class Bulk implements Countable
 	{
 	}
 
-	public function insert(bool $skipDuplications = false): BulkMessage
+	/**
+	 * @param mixed[] $options
+	 */
+	public function insert(bool $skipDuplications = false, array $options = []): BulkMessage
 	{
-		return $this->dialect->insert($this->blueprint, $this->packets, $this->hooks, $skipDuplications);
+		return $this->dialect->insert($this->blueprint, $this->packets, $this->hooks, $skipDuplications, $options);
 	}
 
-	public function executeInsert(bool $skipDuplications = false): int
+	/**
+	 * @param mixed[] $options
+	 */
+	public function executeInsert(bool $skipDuplications = false, array $options = []): int
 	{
-		return $this->insert($skipDuplications)->send($this->em);
+		return $this->insert($skipDuplications, $options)->send($this->em);
 	}
 
-	public function insertIgnore(): BulkMessage
+	/**
+	 * @param mixed[] $options
+	 */
+	public function insertIgnore(array $options = []): BulkMessage
 	{
-		return $this->dialect->insertIgnore($this->blueprint, $this->packets, $this->hooks);
+		return $this->dialect->insertIgnore($this->blueprint, $this->packets, $this->hooks, $options);
 	}
 
-	public function executeInsertIgnore(): int
+	/**
+	 * @param mixed[] $options
+	 */
+	public function executeInsertIgnore(array $options = []): int
 	{
-		return $this->insertIgnore()->send($this->em);
+		return $this->insertIgnore($options)->send($this->em);
 	}
 
-	public function upsert(): BulkMessage
+	/**
+	 * @param mixed[] $options
+	 */
+	public function upsert(array $options = []): BulkMessage
 	{
-		return $this->dialect->upsert($this->blueprint, $this->packets, $this->hooks);
+		return $this->dialect->upsert($this->blueprint, $this->packets, $this->hooks, $options);
 	}
 
-	public function executeUpsert(): int
+	/**
+	 * @param mixed[] $options
+	 */
+	public function executeUpsert(array $options = []): int
 	{
-		return $this->upsert()->send($this->em);
+		return $this->upsert($options)->send($this->em);
 	}
 
-	public function update(): BulkMessage
+	/**
+	 * @param mixed[] $options
+	 */
+	public function update(array $options = []): BulkMessage
 	{
-		return $this->dialect->update($this->blueprint, $this->packets, $this->hooks);
+		return $this->dialect->update($this->blueprint, $this->packets, $this->hooks, $options);
 	}
 
-	public function executeUpdate(): int
+	/**
+	 * @param mixed[] $options
+	 */
+	public function executeUpdate(array $options = []): int
 	{
-		return $this->update()->send($this->em);
+		return $this->update($options)->send($this->em);
 	}
 
 	public function count(): int
