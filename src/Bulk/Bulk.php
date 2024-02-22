@@ -42,7 +42,6 @@ final class Bulk
 
 	public function upsert(): BulkMessage
 	{
-		var_dump(count($this->packets));
 		return $this->dialect->upsert($this->blueprint, $this->packets, $this->hooks);
 	}
 
@@ -53,11 +52,7 @@ final class Bulk
 
 	public function update(): BulkMessage
 	{
-		$time = microtime(true);
-		$ret =  $this->dialect->update($this->blueprint, $this->packets, $this->hooks);
-		var_dump(microtime(true) - $time);
-		
-		return $ret;
+		return $this->dialect->update($this->blueprint, $this->packets, $this->hooks);
 	}
 
 	public function executeUpdate(): int
