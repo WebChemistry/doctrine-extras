@@ -33,7 +33,7 @@ final class BulkBuilder
 	}
 
 	/**
-	 * @param array<string, scalar|null> $values
+	 * @param array<string, mixed> $values
 	 * @return self<TEntity>
 	 */
 	public function add(array $values): self

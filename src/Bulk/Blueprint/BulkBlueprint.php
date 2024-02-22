@@ -106,7 +106,7 @@ final class BulkBlueprint
 	}
 
 	/**
-	 * @param array<string, scalar|null> $values
+	 * @param array<string, mixed> $values
 	 */
 	public function createPacket(int $id, array $values): BulkPacket
 	{
@@ -114,9 +114,24 @@ final class BulkBlueprint
 		$fields = [];
 
 		if (count($values) !== $this->columnCount) {
-			throw new InvalidArgumentException(
-				sprintf('Missing values for %s.', implode(', ', array_diff(array_keys($this->columns), array_keys($values)))),
-			);
+			$messages = [];
+			$missing = array_diff(array_keys($this->columns), array_keys($values));
+			$unexpected = array_diff(array_keys($values), array_keys($this->columns));
+
+			if ($missing) {
+				$messages[] = sprintf('missing values for %s.', implode(', ', $missing));
+
+			}
+
+			if ($unexpected) {
+				$messages[] = sprintf('unexpected values for %s.', implode(', ', $unexpected));
+			}
+
+			if (isset($messages[0])) {
+				$messages[0] = ucfirst($messages[0]);
+			}
+
+			throw new InvalidArgumentException(implode(' ', $messages));
 		}
 
 		$platform = $this->em->getConnection()->getDatabasePlatform();

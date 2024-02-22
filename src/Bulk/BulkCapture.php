@@ -5,11 +5,11 @@ namespace WebChemistry\DoctrineExtras\Bulk;
 final class BulkCapture
 {
 
-	/** @var array<string|int, array<string, scalar|null>> */
+	/** @var array<string|int, array<string, mixed>> */
 	private array $values = [];
 
 	/**
-	 * @param array<string, scalar|null> $values
+	 * @param array<string, mixed> $values
 	 */
 	public function add(string|int $id, array $values): self
 	{
@@ -19,7 +19,7 @@ final class BulkCapture
 	}
 
 	/**
-	 * @return array<string|int, array<string, scalar|null>>
+	 * @return array<string|int, array<string, mixed>>
 	 */
 	public function getValues(): array
 	{
