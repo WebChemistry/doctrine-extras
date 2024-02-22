@@ -24,6 +24,14 @@ interface Dialect
 	 * @param BulkPacket[] $packets
 	 * @param BulkHook[] $hooks
 	 */
+	public function insertIgnore(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage;
+
+	/**
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
+	 */
 	public function upsert(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage;
 
 	/**

@@ -50,6 +50,8 @@ $builder->add([
 
 // insert
 Assert::same('INSERT INTO foo (id, first_name, age) VALUES (:id_0, :first_name_0, :age_0), (:id_1, :first_name_1, :age_1)', $builder->build()->insert()->sql);
+// insert ignore
+Assert::same('INSERT IGNORE INTO foo (id, first_name, age) VALUES (:id_0, :first_name_0, :age_0), (:id_1, :first_name_1, :age_1)', $builder->build()->insertIgnore()->sql);
 // insert, skip duplications
 Assert::same('INSERT INTO foo (id, first_name, age) VALUES (:id_0, :first_name_0, :age_0), (:id_1, :first_name_1, :age_1) ON DUPLICATE KEY UPDATE id = id', $builder->build()->insert(true)->sql);
 // upsert

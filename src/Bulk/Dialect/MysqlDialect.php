@@ -20,31 +20,18 @@ final class MysqlDialect implements Dialect
 	 */
 	public function insert(BulkBlueprint $blueprint, array $packets, array $hooks = [], bool $skipDuplications = false): BulkMessage
 	{
-		if (!$packets) {
-			throw new InvalidArgumentException('No packets to upsert.');
-		}
+		return $this->buildInsert($blueprint, $packets, $hooks, $skipDuplications);
+	}
 
-		$sql = sprintf('INSERT INTO %s (%s) VALUES', $blueprint->getTableName(), implode(', ', $blueprint->getColumnNames()));
-		$binds = [];
-
-		foreach ($packets as $packet) {
-			$sql .= sprintf(' (%s),', implode(', ', $packet->getPlaceholders()));
-			$binds = array_merge($binds, $packet->getBinds());
-		}
-
-		$sql = substr($sql, 0, -1);
-
-		if ($skipDuplications) {
-			$sql = sprintf('%s ON DUPLICATE KEY UPDATE %s', $sql, implode(', ', array_map(
-				fn (string $column) => sprintf('%s = %s', $column, $column),
-				array_slice($blueprint->getColumnNamesForIds(), 0, 1),
-			)));
-		}
-
-		return new BulkMessage($sql, $binds, array_map(
-			fn (BulkHook $hook) => fn () => $hook->insert($blueprint, $packets, $skipDuplications),
-			$hooks,
-		));
+	/**
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
+	 */
+	public function insertIgnore(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
+	{
+		return $this->buildInsert($blueprint, $packets, $hooks, ignore: true);
 	}
 
 	/**
@@ -114,6 +101,54 @@ final class MysqlDialect implements Dialect
 
 		return new BulkMessage($sql, $binds, array_map(
 			fn (BulkHook $hook) => fn () => $hook->update($blueprint, $packets),
+			$hooks,
+		));
+	}
+
+
+
+	/**
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 * @param BulkHook[] $hooks
+	 */
+	private function buildInsert(
+		BulkBlueprint $blueprint,
+		array $packets,
+		array $hooks = [],
+		bool $skipDuplications = false,
+		bool $ignore = false,
+	): BulkMessage
+	{
+		if (!$packets) {
+			throw new InvalidArgumentException('No packets to upsert.');
+		}
+
+		$sql = sprintf(
+			'%s INTO %s (%s) VALUES',
+			$ignore ? 'INSERT IGNORE' : 'INSERT',
+			$blueprint->getTableName(),
+			implode(', ', $blueprint->getColumnNames()),
+		);
+		$binds = [];
+
+		foreach ($packets as $packet) {
+			$sql .= sprintf(' (%s),', implode(', ', $packet->getPlaceholders()));
+			$binds = array_merge($binds, $packet->getBinds());
+		}
+
+		$sql = substr($sql, 0, -1);
+
+		if ($skipDuplications) {
+			$sql = sprintf('%s ON DUPLICATE KEY UPDATE %s', $sql, implode(', ', array_map(
+				fn (string $column) => sprintf('%s = %s', $column, $column),
+				array_slice($blueprint->getColumnNamesForIds(), 0, 1),
+			)));
+		}
+
+		return new BulkMessage($sql, $binds, array_map(
+			fn (BulkHook $hook) => fn () => $hook->insert($blueprint, $packets, $skipDuplications),
 			$hooks,
 		));
 	}

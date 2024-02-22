@@ -40,6 +40,16 @@ final class Bulk
 		return $this->insert($skipDuplications)->send($this->em);
 	}
 
+	public function insertIgnore(): BulkMessage
+	{
+		return $this->dialect->insertIgnore($this->blueprint, $this->packets, $this->hooks);
+	}
+
+	public function executeIgnore(): int
+	{
+		return $this->insertIgnore()->send($this->em);
+	}
+
 	public function upsert(): BulkMessage
 	{
 		return $this->dialect->upsert($this->blueprint, $this->packets, $this->hooks);
