@@ -51,6 +51,10 @@ final class BulkBlueprint
 		}
 
 		foreach ($fields as $field) {
+			if (isset($this->ids[$field])) {
+				continue;
+			}
+
 			$this->fields[$field] = $this->columns[$field] = $this->getColumnName($field);
 		}
 
