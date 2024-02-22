@@ -45,7 +45,7 @@ final class Bulk
 		return $this->dialect->insertIgnore($this->blueprint, $this->packets, $this->hooks);
 	}
 
-	public function executeIgnore(): int
+	public function executeInsertIgnore(): int
 	{
 		return $this->insertIgnore()->send($this->em);
 	}
