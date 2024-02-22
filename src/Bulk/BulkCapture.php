@@ -2,7 +2,9 @@
 
 namespace WebChemistry\DoctrineExtras\Bulk;
 
-final class BulkCapture
+use Countable;
+
+final class BulkCapture implements Countable
 {
 
 	/** @var array<string|int, array<string, mixed>> */
@@ -24,6 +26,11 @@ final class BulkCapture
 	public function getValues(): array
 	{
 		return $this->values;
+	}
+
+	public function count(): int
+	{
+		return count($this->values);
 	}
 
 }

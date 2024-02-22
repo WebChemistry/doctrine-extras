@@ -2,6 +2,7 @@
 
 namespace WebChemistry\DoctrineExtras\Bulk;
 
+use Countable;
 use Doctrine\ORM\EntityManagerInterface;
 use WebChemistry\DoctrineExtras\Bulk\Blueprint\BulkBlueprint;
 use WebChemistry\DoctrineExtras\Bulk\Dialect\Dialect;
@@ -11,7 +12,7 @@ use WebChemistry\DoctrineExtras\Bulk\Packet\BulkPacket;
 /**
  * @template TEntity of object
  */
-final class BulkBuilder
+final class BulkBuilder implements Countable
 {
 
 	private int $id = 0;
@@ -53,6 +54,17 @@ final class BulkBuilder
 		}
 
 		return $this;
+	}
+
+	public function count(): int
+	{
+		return count($this->packets);
+	}
+
+	public function clear(): void
+	{
+		$this->packets = [];
+		$this->id = 0;
 	}
 
 	/**
