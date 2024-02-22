@@ -20,7 +20,13 @@ final class MysqlDialect implements Dialect
 	 */
 	public function insert(BulkBlueprint $blueprint, array $packets, array $hooks = [], bool $skipDuplications = false): BulkMessage
 	{
-		return $this->buildInsert($blueprint, $packets, $hooks, $skipDuplications);
+		return $this->buildInsert(
+			$blueprint,
+			$packets,
+			fn (BulkHook $hook) => $hook->insert($blueprint, $packets, $skipDuplications),
+			$hooks,
+			$skipDuplications,
+		);
 	}
 
 	/**
@@ -31,7 +37,13 @@ final class MysqlDialect implements Dialect
 	 */
 	public function insertIgnore(BulkBlueprint $blueprint, array $packets, array $hooks = []): BulkMessage
 	{
-		return $this->buildInsert($blueprint, $packets, $hooks, ignore: true);
+		return $this->buildInsert(
+			$blueprint,
+			$packets,
+			fn (BulkHook $hook) => $hook->insertIgnore($blueprint, $packets),
+			$hooks,
+			ignore: true,
+		);
 	}
 
 	/**
@@ -111,11 +123,13 @@ final class MysqlDialect implements Dialect
 	 * @template T of object
 	 * @param BulkBlueprint<T> $blueprint
 	 * @param BulkPacket[] $packets
+	 * @param callable(BulkHook $hook): void $hookCallback
 	 * @param BulkHook[] $hooks
 	 */
 	private function buildInsert(
 		BulkBlueprint $blueprint,
 		array $packets,
+		callable $hookCallback,
 		array $hooks = [],
 		bool $skipDuplications = false,
 		bool $ignore = false,
@@ -148,7 +162,7 @@ final class MysqlDialect implements Dialect
 		}
 
 		return new BulkMessage($sql, $binds, array_map(
-			fn (BulkHook $hook) => fn () => $hook->insert($blueprint, $packets, $skipDuplications),
+			fn (BulkHook $hook) => fn () => $hookCallback($hook),
 			$hooks,
 		));
 	}

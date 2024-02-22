@@ -20,6 +20,13 @@ interface BulkHook
 	 * @param BulkBlueprint<T> $blueprint
 	 * @param BulkPacket[] $packets
 	 */
+	public function insertIgnore(BulkBlueprint $blueprint, array $packets): void;
+
+	/**
+	 * @template T of object
+	 * @param BulkBlueprint<T> $blueprint
+	 * @param BulkPacket[] $packets
+	 */
 	public function upsert(BulkBlueprint $blueprint, array $packets): void;
 
 	/**
