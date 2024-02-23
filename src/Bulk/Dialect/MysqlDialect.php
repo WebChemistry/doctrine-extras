@@ -190,7 +190,10 @@ final class MysqlDialect implements Dialect
 
 		foreach ($packets as $packet) {
 			$sql .= sprintf(' (%s),', implode(', ', $packet->getPlaceholders()));
-			$binds = array_merge($binds, $packet->getBinds());
+
+			foreach ($packet->getBinds() as $key => $bind) {
+				$binds[$key] = $bind;
+			}
 		}
 
 		$sql = substr($sql, 0, -1);
