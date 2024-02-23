@@ -14,10 +14,12 @@ final class BulkSchema
 	/**
 	 * @param class-string<TEntity> $className
 	 * @param string[] $fields
+	 * @param array<string, mixed> $defaults
 	 */
 	public function __construct(
 		private string $className,
 		private array $fields,
+		private array $defaults = [],
 	)
 	{
 	}
@@ -28,7 +30,7 @@ final class BulkSchema
 	public function createBlueprint(EntityManagerInterface $em): BulkBlueprint
 	{
 		/** @var BulkBlueprint<TEntity> */
-		return new BulkBlueprint($this->className, $em, $this->fields);
+		return new BulkBlueprint($this->className, $em, $this->fields, $this->defaults);
 	}
 
 }

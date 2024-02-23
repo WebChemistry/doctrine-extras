@@ -32,11 +32,13 @@ final class BulkBlueprint
 	/**
 	 * @param class-string<TEntity> $className
 	 * @param string[] $fields
+	 * @param array<string, mixed> $defaults
 	 */
 	public function __construct(
 		private string $className,
 		private EntityManagerInterface $em,
 		array $fields,
+		private array $defaults = [],
 	)
 	{
 		$this->classMetadata = $this->em->getClassMetadata($this->className); // @phpstan-ignore-line
@@ -117,14 +119,20 @@ final class BulkBlueprint
 		$ids = [];
 		$fields = [];
 
+		foreach ($this->defaults as $field => $value) {
+			if (!array_key_exists($field, $values)) {
+				$values[$field] = $value;
+			}
+		}
+
 		if (count($values) !== $this->columnCount) {
 			$messages = [];
 			$missing = array_diff(array_keys($this->columns), array_keys($values));
+
 			$unexpected = array_diff(array_keys($values), array_keys($this->columns));
 
 			if ($missing) {
 				$messages[] = sprintf('missing values for %s.', implode(', ', $missing));
-
 			}
 
 			if ($unexpected) {
