@@ -4,13 +4,18 @@ namespace WebChemistry\DoctrineExtras\Repository;
 
 use Doctrine\Common\Collections\Criteria;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use LogicException;
 use Nette\NotSupportedException;
 use Nette\Utils\Arrays;
+use Stringable;
 use WebChemistry\DoctrineExtras\Identity\EntityWithIdentity;
 use WebChemistry\DoctrineExtras\Index\EntityIndexFactory;
+use WebChemistry\DoctrineExtras\Map\ArrayEntityMapBuilder;
 use WebChemistry\DoctrineExtras\Map\CountMap;
+use WebChemistry\DoctrineExtras\Map\EmptyEntityMap;
 use WebChemistry\DoctrineExtras\Map\EntityMap;
+use WebChemistry\DoctrineExtras\Map\ObjectEntityMapBuilder;
 
 final class DoctrineExtrasRepository
 {
@@ -19,6 +24,73 @@ final class DoctrineExtrasRepository
 		private EntityManagerInterface $em,
 	)
 	{
+	}
+
+	/**
+	 * @template TEntity of object
+	 * @template TValue
+	 * @param class-string<TEntity> $className
+	 * @param TValue[] $results
+	 * @return EntityMap<TEntity, TValue>
+	 */
+	public function createMapByResult(string $className, array $results, string $idField, bool $strict = false): EntityMap
+	{
+		if (!$results) {
+			/** @var EntityMap<TEntity, TValue> */
+			return new EmptyEntityMap($this->em);
+		}
+
+		$metadata = $this->em->getClassMetadata($className);
+		/** @var ArrayEntityMapBuilder<TEntity, TValue> $builder */
+		$builder = new ArrayEntityMapBuilder($metadata);
+
+		foreach ($results as $i => $result) {
+			$idValue = $result[$idField] ?? null;
+
+			if ($idValue === null) {
+				if (!$strict) {
+					continue;
+				}
+
+				throw new LogicException(sprintf('Result "%s" does not contain field %s.', $i, $idField));
+			}
+
+			$builder->add($idValue, $result); // @phpstan-ignore-line
+		}
+
+		return $builder->build($this->em);
+	}
+
+	/**
+	 * @template TEntity of object
+	 * @param mixed[] $ids
+	 * @param class-string<TEntity> $className
+	 * @return EntityMap<TEntity, TEntity>
+	 */
+	public function createSelfMap(array $ids, string $className): EntityMap
+	{
+		$metadata = $this->em->getClassMetadata($className);
+
+		if ($metadata->isIdentifierComposite) {
+			throw new NotSupportedException(
+				sprintf('Entity %s has composite identifier, which is not supported.', $className)
+			);
+		}
+
+		$repository = $this->em->getRepository($className);
+		/** @var TEntity[] $entities */
+		$entities = $repository->findBy([
+			$metadata->getSingleIdentifierFieldName() => $ids,
+		]);
+
+		/** @var ObjectEntityMapBuilder<TEntity, TEntity> $builder */
+		$builder = new ObjectEntityMapBuilder($metadata);
+
+		foreach ($entities as $entity) {
+			$builder->add($entity, $entity);
+		}
+
+		return $builder->build($this->em);
 	}
 
 	/**
@@ -115,7 +187,7 @@ final class DoctrineExtrasRepository
 	}
 
 	/**
-	 * @template TEntity of EntityWithIdentity
+	 * @template TEntity of object
 	 * @template TAssoc of object
 	 * @param TEntity[] $sources
 	 * @param class-string<TAssoc> $target
@@ -126,7 +198,8 @@ final class DoctrineExtrasRepository
 		$first = $this->getFirst($sources);
 
 		if (!$first) {
-			return EntityMap::empty();
+			/** @var EntityMap<TEntity, TAssoc> */
+			return new EmptyEntityMap($this->em);
 		}
 
 		$metadata = $this->em->getClassMetadata($target);
@@ -146,21 +219,21 @@ final class DoctrineExtrasRepository
 		$associations = $qb->getQuery()
 			->getResult();
 
-		$entries = [];
+		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
+		$builder = new ObjectEntityMapBuilder($metadata);
 
 		foreach ($associations as $association) {
 			/** @var TEntity $mainEntity */
 			$mainEntity = $metadata->getFieldValue($association, $field);
 
-			$entries[] = [$mainEntity, $association];
+			$builder->add($mainEntity, $association);
 		}
 
-		/** @var EntityMap<TEntity, TAssoc> */
-		return EntityMap::fromEntries($entries);
+		return $builder->build($this->em);
 	}
 
 	/**
-	 * @template TEntity of EntityWithIdentity
+	 * @template TEntity of object
 	 * @template TAssoc of object
 	 * @param class-string<TEntity> $primary
 	 * @param TAssoc[] $associations
@@ -171,22 +244,24 @@ final class DoctrineExtrasRepository
 		$firstAssoc = $this->getFirst($associations);
 
 		if (!$firstAssoc) {
-			return EntityMap::empty();
+			/** @var EntityMap<TEntity, TAssoc> */
+			return new EmptyEntityMap($this->em);
 		}
 
 		$metadata = $this->em->getClassMetadata($firstAssoc::class);
 		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($primary), $firstAssoc::class, $primary);
-		$entries = [];
+
+		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
+		$builder = new ObjectEntityMapBuilder($metadata);
 
 		foreach ($associations as $association) {
 			/** @var TEntity $mainEntity */
 			$mainEntity = $metadata->getFieldValue($association, $field);
 
-			$entries[] = [$mainEntity, $association];
+			$builder->add($mainEntity, $association);
 		}
 
-		/** @var EntityMap<TEntity, TAssoc> */
-		return EntityMap::fromEntries($entries);
+		return $builder->build($this->em);
 	}
 
 	/**
