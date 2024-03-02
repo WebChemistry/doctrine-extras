@@ -7,9 +7,9 @@ use Exception;
 final class NotSupportedException extends Exception
 {
 
-	public function __construct(string $operation)
+	public static function operation(string $operation): self
 	{
-		parent::__construct(sprintf('Operation %s is not supported.', $operation));
+		return new self(sprintf('Operation %s is not supported.', $operation));
 	}
 
 }

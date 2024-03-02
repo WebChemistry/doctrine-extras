@@ -2,6 +2,7 @@
 
 namespace WebChemistry\DoctrineExtras\Map;
 
+use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use WebChemistry\DoctrineExtras\Map\Exception\NotSupportedException;
@@ -61,6 +62,32 @@ abstract class BaseEntityMap implements EntityMap
 		return $this->map[$key] ?? null;
 	}
 
+	public function column(string $column): array
+	{
+		$values = [];
+
+		foreach ($this->map as $value) {
+			if (is_array($value)) {
+				$values[] = $value[$column];
+			} else if (is_object($value)) {
+				if ($em = $this->em) {
+					$metadata = $em->getClassMetadata(ClassUtils::getClass($value));
+
+					$values[] = $metadata->getFieldValue($value, $column);
+				} else {
+					throw new NotSupportedException('Entity manager is not set.');
+				}
+			}
+		}
+
+		return $values;
+	}
+
+	public function getMap(): array
+	{
+		return $this->map;
+	}
+
 	public function offsetExists(mixed $offset): bool
 	{
 		$key = $this->getKeyForId($offset);
@@ -88,7 +115,7 @@ abstract class BaseEntityMap implements EntityMap
 	 */
 	public function offsetSet(mixed $offset, mixed $value): never
 	{
-		throw new NotSupportedException(__METHOD__);
+		throw NotSupportedException::operation(__METHOD__);
 	}
 
 	/**
@@ -96,7 +123,7 @@ abstract class BaseEntityMap implements EntityMap
 	 */
 	public function offsetUnset(mixed $offset): never
 	{
-		throw new NotSupportedException(__METHOD__);
+		throw NotSupportedException::operation(__METHOD__);
 	}
 
 	/**

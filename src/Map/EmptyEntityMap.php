@@ -35,6 +35,16 @@ final class EmptyEntityMap implements EntityMap
 		return null;
 	}
 
+	public function column(string $column): array
+	{
+		return [];
+	}
+
+	public function getMap(): array
+	{
+		return [];
+	}
+
 	public function offsetExists(mixed $offset): bool
 	{
 		return false;
@@ -47,12 +57,12 @@ final class EmptyEntityMap implements EntityMap
 
 	public function offsetSet(mixed $offset, mixed $value): never
 	{
-		throw new NotSupportedException(__METHOD__);
+		throw NotSupportedException::operation(__METHOD__);
 	}
 
 	public function offsetUnset(mixed $offset): never
 	{
-		throw new NotSupportedException(__METHOD__);
+		throw NotSupportedException::operation(__METHOD__);
 	}
 
 }
