@@ -34,6 +34,11 @@ interface EntityMap extends ArrayAccess
 	public function getNullable(object|int|string|array|null $id): mixed;
 
 	/**
+	 * @param TEntity|int|string|array<string, TEntity|int|string|null>|null $id
+	 */
+	public function has(object|int|string|array|null $id): bool;
+
+	/**
 	 * @param string $column
 	 * @return mixed[]
 	 */

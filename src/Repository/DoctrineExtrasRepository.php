@@ -12,9 +12,12 @@ use Stringable;
 use WebChemistry\DoctrineExtras\Identity\EntityWithIdentity;
 use WebChemistry\DoctrineExtras\Index\EntityIndexFactory;
 use WebChemistry\DoctrineExtras\Map\ArrayEntityMapBuilder;
+use WebChemistry\DoctrineExtras\Map\ArrayExistentialMap;
 use WebChemistry\DoctrineExtras\Map\CountMap;
 use WebChemistry\DoctrineExtras\Map\EmptyEntityMap;
+use WebChemistry\DoctrineExtras\Map\EmptyExistentialMap;
 use WebChemistry\DoctrineExtras\Map\EntityMap;
+use WebChemistry\DoctrineExtras\Map\ExistentialMap;
 use WebChemistry\DoctrineExtras\Map\ObjectEntityMapBuilder;
 
 final class DoctrineExtrasRepository
@@ -98,6 +101,57 @@ final class DoctrineExtrasRepository
 	 * @template TAssoc of object
 	 * @param TEntity[] $sources
 	 * @param class-string<TAssoc> $target
+	 * @return ExistentialMap<TEntity>
+	 */
+	public function createExistentialMap(array $sources, string $target, ?Criteria $criteria = null): ExistentialMap
+	{
+		$first = $this->getFirst($sources);
+
+		if (!$first) {
+			/** @var ArrayExistentialMap<TEntity> */
+			return new EmptyExistentialMap($this->em);
+		}
+
+		$metadata = $this->em->getClassMetadata($target);
+		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
+
+		$qb = $this->em->createQueryBuilder()
+			->select(sprintf('IDENTITY(e.%s)', $field))
+			->groupBy(sprintf('e.%s', $field))
+			->from($target, 'e')
+			->where(sprintf('e.%s IN (:sources)', $field))
+			->setParameter('sources', $sources);
+
+		if ($criteria) {
+			$qb->addCriteria($criteria);
+		}
+
+		/** @var array{1: int}[] $associations */
+		$associations = $qb->getQuery()
+			->getResult();
+
+		$entries = [];
+		$index = (new EntityIndexFactory($this->em))->create($sources);
+
+		foreach ($associations as $association) {
+			$sourceId = $association[1];
+
+			$entity = $index->find($sourceId);
+
+			if ($entity) {
+				$entries[] = [$entity, true];
+			}
+		}
+
+		/** @var ExistentialMap<TEntity> */
+		return new ArrayExistentialMap($entries, $this->em->getClassMetadata($first::class), $this->em);
+	}
+
+	/**
+	 * @template TEntity of object
+	 * @template TAssoc of object
+	 * @param TEntity[] $sources
+	 * @param class-string<TAssoc> $target
 	 * @return CountMap<TEntity>
 	 */
 	public function createCountMap(array $sources, string $target, ?Criteria $criteria = null): CountMap
@@ -128,6 +182,7 @@ final class DoctrineExtrasRepository
 			->getResult();
 
 		$entries = [];
+
 		$index = (new EntityIndexFactory($this->em))->create($sources);
 
 		foreach ($associations as $association) {

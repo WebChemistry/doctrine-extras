@@ -51,6 +51,17 @@ abstract class BaseEntityMap implements EntityMap
 		return $this->map[$key] ?? $value;
 	}
 
+	public function has(object|int|array|string|null $id): bool
+	{
+		$key = $this->getKeyForId($id);
+
+		if ($key === null) {
+			return false;
+		}
+
+		return array_key_exists($key, $this->map);
+	}
+
 	public function getNullable(object|int|array|string|null $id): mixed
 	{
 		$key = $this->getKeyForId($id);
@@ -88,32 +99,20 @@ abstract class BaseEntityMap implements EntityMap
 		return $this->map;
 	}
 
-	public function offsetExists(mixed $offset): bool
+	final public function offsetExists(mixed $offset): bool
 	{
-		$key = $this->getKeyForId($offset);
-
-		if ($key === null) {
-			return false;
-		}
-
-		return array_key_exists($key, $this->map);
+		return $this->has($offset);
 	}
 
-	public function offsetGet(mixed $offset): mixed
+	final public function offsetGet(mixed $offset): mixed
 	{
-		$key = $this->getKeyForId($offset);
-
-		if ($key === null || !array_key_exists($key, $this->map)) {
-			OutOfBoundsException::notExists($offset, $this->em);
-		}
-
-		return $this->map[$key];
+		return $this->get($offset);
 	}
 
 	/**
 	 * @throws NotSupportedException
 	 */
-	public function offsetSet(mixed $offset, mixed $value): never
+	final public function offsetSet(mixed $offset, mixed $value): never
 	{
 		throw NotSupportedException::operation(__METHOD__);
 	}
@@ -121,7 +120,7 @@ abstract class BaseEntityMap implements EntityMap
 	/**
 	 * @throws NotSupportedException
 	 */
-	public function offsetUnset(mixed $offset): never
+	final public function offsetUnset(mixed $offset): never
 	{
 		throw NotSupportedException::operation(__METHOD__);
 	}
