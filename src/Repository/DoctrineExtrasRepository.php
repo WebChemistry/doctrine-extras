@@ -205,19 +205,23 @@ final class DoctrineExtrasRepository
 		$metadata = $this->em->getClassMetadata($target);
 		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
 
-		$qb = $this->em->createQueryBuilder()
-			->select('e')
-			->from($target, 'e')
-			->where(sprintf('e.%s IN (:sources)', $field))
-			->setParameter('sources', $sources);
+		if (!$criteria) {
+			/** @var TAssoc[] $associations */
+			$associations = $this->em->getRepository($target)->findBy([
+				$field => $sources,
+			]);
+		} else {
+			$qb = $this->em->createQueryBuilder()
+				->select('e')
+				->from($target, 'e')
+				->where(sprintf('e.%s IN (:sources)', $field))
+				->setParameter('sources', $sources)
+				->addCriteria($criteria);
 
-		if ($criteria) {
-			$qb->addCriteria($criteria);
+			/** @var TAssoc[] $associations */
+			$associations = $qb->getQuery()
+				->getResult();
 		}
-
-		/** @var TAssoc[] $associations */
-		$associations = $qb->getQuery()
-			->getResult();
 
 		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
 		$builder = new ObjectEntityMapBuilder($this->em->getClassMetadata($first::class));
