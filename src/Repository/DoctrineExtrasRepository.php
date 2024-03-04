@@ -220,7 +220,7 @@ final class DoctrineExtrasRepository
 			->getResult();
 
 		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
-		$builder = new ObjectEntityMapBuilder($metadata);
+		$builder = new ObjectEntityMapBuilder($this->em->getClassMetadata($first::class));
 
 		foreach ($associations as $association) {
 			/** @var TEntity $mainEntity */
@@ -252,7 +252,7 @@ final class DoctrineExtrasRepository
 		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($primary), $firstAssoc::class, $primary);
 
 		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
-		$builder = new ObjectEntityMapBuilder($metadata);
+		$builder = new ObjectEntityMapBuilder($this->em->getClassMetadata($primary));
 
 		foreach ($associations as $association) {
 			/** @var TEntity $mainEntity */
