@@ -4,7 +4,8 @@ namespace WebChemistry\DoctrineExtras\Map;
 
 /**
  * @template TEntity of object
- * @extends BaseEmptyEntityMap<TEntity, false>
+ * @extends BaseEmptyEntityMap<TEntity, bool>
+ * @implements ExistentialMap<TEntity>
  */
 final class EmptyExistentialMap extends BaseEmptyEntityMap implements ExistentialMap
 {
