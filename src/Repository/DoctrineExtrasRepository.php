@@ -23,6 +23,8 @@ use WebChemistry\DoctrineExtras\Map\ObjectEntityMapBuilder;
 final class DoctrineExtrasRepository
 {
 
+	public const Joins = 'joins';
+
 	public function __construct(
 		private EntityManagerInterface $em,
 	)
@@ -68,9 +70,10 @@ final class DoctrineExtrasRepository
 	 * @template TEntity of object
 	 * @param mixed[] $ids
 	 * @param class-string<TEntity> $className
+	 * @param mixed[] $options
 	 * @return EntityMap<TEntity, TEntity>
 	 */
-	public function createSelfMap(array $ids, string $className): EntityMap
+	public function createSelfMap(array $ids, string $className, array $options = []): EntityMap
 	{
 		$metadata = $this->em->getClassMetadata($className);
 
@@ -80,11 +83,32 @@ final class DoctrineExtrasRepository
 			);
 		}
 
-		$repository = $this->em->getRepository($className);
-		/** @var TEntity[] $entities */
-		$entities = $repository->findBy([
-			$metadata->getSingleIdentifierFieldName() => $ids,
-		]);
+		if (!isset($options[self::Joins])) {
+			$repository = $this->em->getRepository($className);
+			/** @var TEntity[] $entities */
+			$entities = $repository->findBy([
+				$metadata->getSingleIdentifierFieldName() => $ids,
+			]);
+		} else {
+			/** @var string[] $joins */
+			$joins = $options[self::Joins];
+
+			$qb = $this->em->createQueryBuilder()
+				->select('e')
+				->from($className, 'e');
+
+			foreach ($joins as $i => $field) {
+				$qb->addSelect(sprintf('j%s', $i));
+
+				$qb->leftJoin(sprintf('e.%s', $field), sprintf('j%s', $i));
+			}
+
+			$qb->where(sprintf('e.%s IN (:ids)', $metadata->getSingleIdentifierFieldName()))
+				->setParameter('ids', $ids);
+
+			/** @var TEntity[] $entities */
+			$entities = $qb->getQuery()->getResult();
+		}
 
 		/** @var ObjectEntityMapBuilder<TEntity, TEntity> $builder */
 		$builder = new ObjectEntityMapBuilder($metadata);
