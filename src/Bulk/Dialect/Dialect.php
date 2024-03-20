@@ -11,6 +11,8 @@ interface Dialect
 {
 
 	public const ColumnEscape = 'columnEscape';
+	
+	public const Ignore = 'ignore';
 
 	/**
 	 * @template T of object

@@ -9,6 +9,9 @@ use WebChemistry\DoctrineExtras\Bulk\Payload\BulkPayload;
 final class BulkPacket
 {
 
+	/** @var BulkPayload[] */
+	private array $all;
+
 	/**
 	 * @param BulkPayload[] $ids
 	 * @param BulkPayload[] $fields
@@ -19,6 +22,7 @@ final class BulkPacket
 		public readonly array $fields,
 	)
 	{
+		$this->all = array_merge($ids, $fields);
 	}
 
 	/**
@@ -29,7 +33,7 @@ final class BulkPacket
 	{
 		$map = [];
 
-		foreach (array_merge($this->ids, $this->fields) as $payload) {
+		foreach ($this->all as $payload) {
 			$map[$payload->column] = $payload->value;
 		}
 
@@ -44,7 +48,7 @@ final class BulkPacket
 	{
 		$map = [];
 
-		foreach (array_merge($this->ids, $this->fields) as $payload) {
+		foreach ($this->all as $payload) {
 			$map[$payload->field] = $payload->value;
 		}
 
@@ -77,7 +81,7 @@ final class BulkPacket
 	 */
 	public function getPlaceholders(): array
 	{
-		return array_map(fn (BulkPayload $payload) => sprintf(':%s_%d', $payload->column, $this->id), array_merge($this->ids, $this->fields));
+		return array_map(fn (BulkPayload $payload) => sprintf(':%s_%d', $payload->column, $this->id), $this->all);
 	}
 
 	public function getPlaceholderFor(BulkPayload $payload): string
@@ -92,7 +96,7 @@ final class BulkPacket
 	{
 		$binds = [];
 
-		foreach (array_merge($this->ids, $this->fields) as $payload) {
+		foreach ($this->all as $payload) {
 			$binds[sprintf('%s_%d', $payload->column, $this->id)] = [$payload->getBindValue(), $payload->getType()];
 		}
 
@@ -120,7 +124,7 @@ final class BulkPacket
 	 */
 	public function getColumns(): array
 	{
-		return array_map(fn (BulkPayload $payload) => $payload->column, array_merge($this->ids, $this->fields));
+		return array_map(fn (BulkPayload $payload) => $payload->column, $this->all);
 	}
 
 	/**

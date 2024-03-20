@@ -2,6 +2,7 @@
 
 namespace WebChemistry\DoctrineExtras\Bulk\Dialect;
 
+use App\Debug\MemoryUsageDebugger;
 use InvalidArgumentException;
 use WebChemistry\DoctrineExtras\Bulk\Blueprint\BulkBlueprint;
 use WebChemistry\DoctrineExtras\Bulk\Hook\BulkHook;
@@ -110,9 +111,14 @@ final class MysqlDialect implements Dialect
 
 		$tableName = $blueprint->getTableName();
 		$escape = $options[self::ColumnEscape] ?? false;
+		$ignore = $options[self::Ignore] ?? false;
 
 		foreach ($packets as $packet) {
-			$fragment = sprintf('UPDATE %s SET', $tableName);
+			if ($ignore) {
+				$fragment = sprintf('UPDATE IGNORE %s SET', $tableName);
+			} else {
+				$fragment = sprintf('UPDATE %s SET', $tableName);
+			}
 
 			foreach ($packet->fields as $field) {
 				$fragment .= sprintf(
@@ -188,7 +194,8 @@ final class MysqlDialect implements Dialect
 		);
 		$binds = [];
 
-		foreach ($packets as $packet) {
+
+		foreach ($packets as $i => $packet) {
 			$sql .= sprintf(' (%s),', implode(', ', $packet->getPlaceholders()));
 
 			foreach ($packet->getBinds() as $key => $bind) {
