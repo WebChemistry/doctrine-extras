@@ -18,7 +18,7 @@ final class BulkBuilder implements Countable
 	private int $id = 0;
 
 	/** @var BulkPacket[] */
-	private array $packets;
+	private array $packets = [];
 
 	/**
 	 * @param BulkBlueprint<TEntity> $blueprint
@@ -73,6 +73,18 @@ final class BulkBuilder implements Countable
 	public function build(): Bulk
 	{
 		return new Bulk($this->em, $this->blueprint, $this->dialect, $this->packets, $this->hooks);
+	}
+
+	/**
+	 * @return Bulk<TEntity>|null
+	 */
+	public function buildIfNotEmpty(): ?Bulk
+	{
+		if (!$this->packets) {
+			return null;
+		}
+
+		return $this->build();
 	}
 
 }
