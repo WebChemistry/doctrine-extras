@@ -2,13 +2,11 @@
 
 namespace WebChemistry\DoctrineExtras\Bulk\Dialect;
 
-use App\Debug\MemoryUsageDebugger;
 use InvalidArgumentException;
 use WebChemistry\DoctrineExtras\Bulk\Blueprint\BulkBlueprint;
 use WebChemistry\DoctrineExtras\Bulk\Hook\BulkHook;
 use WebChemistry\DoctrineExtras\Bulk\Message\BulkMessage;
 use WebChemistry\DoctrineExtras\Bulk\Packet\BulkPacket;
-use WebChemistry\DoctrineExtras\Bulk\Payload\BulkPayload;
 
 final class MysqlDialect implements Dialect
 {
@@ -109,6 +107,7 @@ final class MysqlDialect implements Dialect
 
 		$sql = '';
 
+		$binds = [];
 		$tableName = $blueprint->getTableName();
 		$escape = $options[self::ColumnEscape] ?? false;
 		$ignore = $options[self::Ignore] ?? false;
@@ -141,11 +140,7 @@ final class MysqlDialect implements Dialect
 			$fragment = substr($fragment, 0, -4) . ";\n";
 
 			$sql .= $fragment;
-		}
 
-		$binds = [];
-
-		foreach ($packets as $packet) {
 			foreach ($packet->getBinds() as $id => $value) {
 				$binds[$id] = $value;
 			}
@@ -195,7 +190,7 @@ final class MysqlDialect implements Dialect
 		$binds = [];
 
 
-		foreach ($packets as $i => $packet) {
+		foreach ($packets as $packet) {
 			$sql .= sprintf(' (%s),', implode(', ', $packet->getPlaceholders()));
 
 			foreach ($packet->getBinds() as $key => $bind) {
