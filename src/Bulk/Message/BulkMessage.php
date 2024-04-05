@@ -27,19 +27,17 @@ final class BulkMessage
 		}
 	}
 
-	public function send(EntityManagerInterface $em): int
+	public function send(EntityManagerInterface $em): void
 	{
 		$stmt = $em->getConnection()->prepare($this->sql);
 
 		$this->bindTo($stmt);
 
-		$return = $stmt->executeStatement();
+		$stmt->executeQuery()->free();
 
 		foreach ($this->hooks as $hook) {
 			$hook();
 		}
-
-		return $return;
 	}
 
 }
