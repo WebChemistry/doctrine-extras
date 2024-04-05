@@ -33,7 +33,7 @@ final class BulkMessage
 
 		$this->bindTo($stmt);
 
-		$stmt->executeQuery()->free();
+		$stmt->executeStatement();
 
 		foreach ($this->hooks as $hook) {
 			$hook();
