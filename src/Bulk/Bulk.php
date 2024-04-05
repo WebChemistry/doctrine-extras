@@ -42,9 +42,9 @@ final class Bulk implements Countable
 	/**
 	 * @param mixed[] $options
 	 */
-	public function executeInsert(bool $skipDuplications = false, array $options = []): int
+	public function executeInsert(bool $skipDuplications = false, array $options = []): void
 	{
-		return $this->insert($skipDuplications, $options)->send($this->em);
+		$this->insert($skipDuplications, $options)->send($this->em);
 	}
 
 	/**
@@ -58,9 +58,9 @@ final class Bulk implements Countable
 	/**
 	 * @param mixed[] $options
 	 */
-	public function executeInsertIgnore(array $options = []): int
+	public function executeInsertIgnore(array $options = []): void
 	{
-		return $this->insertIgnore($options)->send($this->em);
+		$this->insertIgnore($options)->send($this->em);
 	}
 
 	/**
@@ -74,9 +74,9 @@ final class Bulk implements Countable
 	/**
 	 * @param mixed[] $options
 	 */
-	public function executeUpsert(array $options = []): int
+	public function executeUpsert(array $options = []): void
 	{
-		return $this->upsert($options)->send($this->em);
+		$this->upsert($options)->send($this->em);
 	}
 
 	/**
@@ -90,9 +90,9 @@ final class Bulk implements Countable
 	/**
 	 * @param mixed[] $options
 	 */
-	public function executeUpdate(array $options = []): int
+	public function executeUpdate(array $options = []): void
 	{
-		return $this->update($options)->send($this->em);
+		$this->update($options)->send($this->em);
 	}
 
 	public function count(): int
