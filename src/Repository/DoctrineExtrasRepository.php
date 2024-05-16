@@ -3,6 +3,7 @@
 namespace WebChemistry\DoctrineExtras\Repository;
 
 use Doctrine\Common\Collections\Criteria;
+use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use LogicException;
@@ -136,8 +137,9 @@ final class DoctrineExtrasRepository
 			return new EmptyExistentialMap($this->em);
 		}
 
+		$sourceClass = ClassUtils::getClass($first);
 		$metadata = $this->em->getClassMetadata($target);
-		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
+		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($sourceClass), $target, $sourceClass);
 
 		$qb = $this->em->createQueryBuilder()
 			->select(sprintf('IDENTITY(e.%s)', $field))
@@ -168,7 +170,7 @@ final class DoctrineExtrasRepository
 		}
 
 		/** @var ExistentialMap<TEntity> */
-		return new ArrayExistentialMap($entries, $this->em->getClassMetadata($first::class), $this->em);
+		return new ArrayExistentialMap($entries, $this->em->getClassMetadata($sourceClass), $this->em);
 	}
 
 	/**
@@ -187,8 +189,9 @@ final class DoctrineExtrasRepository
 			return new CountMap([]);
 		}
 
+		$sourceClass = ClassUtils::getClass($first);
 		$metadata = $this->em->getClassMetadata($target);
-		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
+		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($sourceClass), $target, $sourceClass);
 
 		$qb = $this->em->createQueryBuilder()
 			->select(sprintf('COUNT(e.%s), IDENTITY(e.%s)', $field, $field))
@@ -281,8 +284,9 @@ final class DoctrineExtrasRepository
 			return new EmptyEntityMap($this->em);
 		}
 
+		$sourceClass = ClassUtils::getClass($first);
 		$metadata = $this->em->getClassMetadata($target);
-		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($first::class), $target, $first::class);
+		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($sourceClass), $target, $sourceClass);
 
 		if (!$criteria) {
 			/** @var TAssoc[] $associations */
@@ -303,7 +307,7 @@ final class DoctrineExtrasRepository
 		}
 
 		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
-		$builder = new ObjectEntityMapBuilder($this->em->getClassMetadata($first::class));
+		$builder = new ObjectEntityMapBuilder($this->em->getClassMetadata($sourceClass));
 
 		foreach ($associations as $association) {
 			/** @var TEntity $mainEntity */
@@ -331,8 +335,10 @@ final class DoctrineExtrasRepository
 			return new EmptyEntityMap($this->em);
 		}
 
-		$metadata = $this->em->getClassMetadata($firstAssoc::class);
-		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($primary), $firstAssoc::class, $primary);
+		$assocClass = ClassUtils::getClass($firstAssoc);
+
+		$metadata = $this->em->getClassMetadata($assocClass);
+		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($primary), $assocClass, $primary);
 
 		/** @var ObjectEntityMapBuilder<TEntity, TAssoc> $builder */
 		$builder = new ObjectEntityMapBuilder($this->em->getClassMetadata($primary));
