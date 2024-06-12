@@ -235,7 +235,7 @@ final class DoctrineExtrasRepository
 	 * @param array<string, string> $joins join => alias
 	 * @return T[]
 	 */
-	public function findMany(string $className, array $ids, ?string $sort = null, array $joins = []): array
+	public function findMany(string $className, array $ids, ?string $sort = null, array $joins = [], bool $sortByGiven = false): array
 	{
 		$metadata = $this->em->getClassMetadata($className);
 
@@ -249,15 +249,49 @@ final class DoctrineExtrasRepository
 
 		$field = Arrays::first($fields);
 
+		if (!$field) {
+			throw new LogicException(sprintf('Entity %s does not have any identifier.', $className));
+		}
+
+		if (!$joins && !$sort) {
+			$values = $this->em->getRepository($className)->findBy([
+				$field => $ids,
+			]);
+
+			if ($sortByGiven) {
+				$sorted = [];
+				$outOfRange = [];
+
+				foreach ($values as $value) {
+					$position = array_search($metadata->getFieldValue($value, $field), $ids, true);
+
+					if ($position === false) {
+						$outOfRange[] = $value;
+					} else {
+						$sorted[$position] = $value;
+					}
+				}
+
+
+				$values = [...$sorted, ...$outOfRange];
+			}
+
+			return $values;
+		}
+
 		$qb = $this->em->createQueryBuilder()
 			->select('e')
 			->from($className, 'e')
 			->where(sprintf('e.%s IN(:ids)', $field))
-			->setParameter('ids', array_reverse($ids));
+			->setParameter('ids', $ids);
 
 		foreach ($joins as $join => $alias) {
 			$qb->leftJoin($join, $alias)
 				->addSelect($alias);
+		}
+
+		if ($sortByGiven) {
+			$qb->orderBy(sprintf('FIELD(e.%s, :ids)', $field));
 		}
 
 		if ($sort) {
