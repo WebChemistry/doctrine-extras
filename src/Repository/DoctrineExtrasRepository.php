@@ -253,6 +253,10 @@ final class DoctrineExtrasRepository
 			throw new LogicException(sprintf('Entity %s does not have any identifier.', $className));
 		}
 
+		if (!$ids) {
+			return [];
+		}
+
 		if (!$joins && !$sort) {
 			$values = $this->em->getRepository($className)->findBy([
 				$field => $ids,
