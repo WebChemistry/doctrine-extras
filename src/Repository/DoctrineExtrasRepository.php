@@ -84,6 +84,11 @@ final class DoctrineExtrasRepository
 			);
 		}
 
+		if (!$ids) {
+			/** @var EntityMap<TEntity, TEntity> */
+			return new EmptyEntityMap($this->em);
+		}
+
 		if (!isset($options[self::Joins])) {
 			$repository = $this->em->getRepository($className);
 			/** @var TEntity[] $entities */
