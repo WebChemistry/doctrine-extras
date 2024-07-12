@@ -6,6 +6,7 @@ use Doctrine\Common\Collections\Criteria;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\QueryBuilder;
 use LogicException;
 use Nette\NotSupportedException;
 use Nette\Utils\Arrays;
@@ -309,6 +310,66 @@ final class DoctrineExtrasRepository
 
 		/** @var T[] */
 		return $qb->getQuery()->getResult();
+	}
+
+	/**
+	 * @template T of object
+	 * @param class-string<T> $className
+	 * @param mixed $id
+	 * @param string[] $joins
+	 * @return T|null
+	 */
+	public function find(string $className, mixed $id, array $joins = []): ?object
+	{
+		if (!$joins) {
+			return $this->em->find($className, $id);
+		}
+
+		$metadata = $this->em->getClassMetadata($className);
+
+		$qb = $this->em->createQueryBuilder()
+			->select('root')
+			->from($className, 'root');
+
+		$this->makeJoins($qb, 'root', $joins);
+
+		$qb->where(sprintf('root.%s = :id', $metadata->getSingleIdentifierFieldName()))
+			->setParameter('id', $id);
+
+		/** @var T|null */
+		return $qb->getQuery()->getOneOrNullResult();
+	}
+
+	/**
+	 * @param string[] $joins
+	 */
+	private function makeJoins(QueryBuilder $qb, string $rootAlias, array $joins): void
+	{
+		$exists = [];
+		$aliasStack = 'a';
+
+		foreach ($joins as $join) {
+			$paths = explode('.', $join);
+			$lastPath = $paths[array_key_last($paths)];
+			$alias = $rootAlias;
+
+			foreach (array_slice($paths, 0, -1) as $path) {
+				if (isset($exists[$path])) {
+					$alias = $exists[$path];
+				} else {
+					$qb->leftJoin(sprintf('%s.%s', $alias, $path), $aliasStack);
+
+					$alias = $exists[$path] = $aliasStack;
+					$aliasStack++;
+				}
+			}
+
+			$qb->addSelect($aliasStack);
+			$qb->leftJoin(sprintf('%s.%s', $alias, $lastPath), $aliasStack);
+
+			$exists[$lastPath] = $aliasStack;
+			$aliasStack++;
+		}
 	}
 
 	/**
