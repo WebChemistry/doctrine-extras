@@ -217,6 +217,8 @@ final class DoctrineExtrasRepository
 			$qb->addSelect(sprintf('COUNT(%se.%s)', $distinct ? 'DISTINCT ' : '', $field));
 		}
 
+		$qb->addSelect(sprintf('IDENTITY(e.%s)', $field));
+
 		if ($criteria) {
 			$qb->addCriteria($criteria);
 		}
