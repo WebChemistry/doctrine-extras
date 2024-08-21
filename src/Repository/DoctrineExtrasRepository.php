@@ -186,7 +186,13 @@ final class DoctrineExtrasRepository
 	 * @param class-string<TAssoc> $target
 	 * @return CountMap<TEntity>
 	 */
-	public function createCountMap(array $sources, string $target, ?Criteria $criteria = null): CountMap
+	public function createCountMap(
+		array $sources,
+		string $target,
+		?Criteria $criteria = null,
+		?string $countField = null,
+		bool $distinct = false,
+	): CountMap
 	{
 		$first = $this->getFirst($sources);
 
@@ -200,11 +206,16 @@ final class DoctrineExtrasRepository
 		$field = $this->getFirstField($metadata->getAssociationsByTargetClass($sourceClass), $target, $sourceClass);
 
 		$qb = $this->em->createQueryBuilder()
-			->select(sprintf('COUNT(e.%s), IDENTITY(e.%s)', $field, $field))
 			->groupBy(sprintf('e.%s', $field))
 			->from($target, 'e')
 			->where(sprintf('e.%s IN (:sources)', $field))
 			->setParameter('sources', $sources);
+
+		if ($countField) {
+			$qb->addSelect(sprintf('COUNT(%se.%s)', $distinct ? 'DISTINCT ' : '', $countField));
+		} else {
+			$qb->addSelect(sprintf('COUNT(%se.%s)', $distinct ? 'DISTINCT ' : '', $field));
+		}
 
 		if ($criteria) {
 			$qb->addCriteria($criteria);
